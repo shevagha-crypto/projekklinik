@@ -138,6 +138,34 @@ p {
     color: var(--ink)
 }
 
+.password-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.password-wrapper input {
+    padding-right: 44px;
+}
+
+.toggle-password {
+    position: absolute;
+    right: 12px;
+    background: none;
+    border: none;
+    padding: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    cursor: pointer;
+    transition: color .2s;
+}
+
+.toggle-password:hover {
+    color: var(--teal);
+}
+
 input:focus,
 textarea:focus,
 select:focus {
@@ -1792,4 +1820,133 @@ button {
 
 .date-chip button:hover {
     background: #d4ecea;
+}
+
+/* Info Obat - Patient View */
+.info-obat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1rem;
+    padding: 1.25rem;
+}
+.info-obat-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.25rem;
+    transition: box-shadow .2s;
+}
+.info-obat-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,.06);
+}
+.info-obat-header {
+    display: flex;
+    align-items: flex-start;
+    gap: .75rem;
+    margin-bottom: .75rem;
+}
+.info-obat-header > div:nth-child(2) {
+    flex: 1;
+}
+.info-obat-header strong {
+    display: block;
+    font-size: .95rem;
+}
+.info-obat-header small {
+    color: #64748b;
+    font-size: .8rem;
+}
+.info-obat-desc {
+    font-size: .875rem;
+    color: #475569;
+    line-height: 1.5;
+    margin: 0;
+    padding-top: .5rem;
+    border-top: 1px solid #e2e8f0;
+}
+
+/* Action group in table */
+.action-group {
+    display: flex;
+    gap: .5rem;
+}
+
+/* Medicine image upload */
+.image-upload-area {
+    border: 2px dashed #cbd5e1;
+    border-radius: 10px;
+    padding: 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    position: relative;
+    transition: border-color .2s, background .2s;
+    margin-bottom: .75rem;
+}
+.image-upload-area:hover,
+.image-upload-area.drag-over {
+    border-color: #2a7e89;
+    background: #f0fdfa;
+}
+.image-upload-area span {
+    color: #64748b;
+    font-size: .875rem;
+}
+.image-upload-area .file-input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+.image-preview {
+    margin-bottom: .75rem;
+    position: relative;
+    display: inline-block;
+}
+.image-preview img {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+}
+.image-preview .remove-preview {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: none;
+    background: #ef4444;
+    color: #fff;
+    font-size: .8rem;
+    cursor: pointer;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Medicine thumbnail in table & cards */
+.medicine-thumb {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+/* Info obat card image */
+.info-obat-img {
+    width: 100%;
+    height: 160px;
+    overflow: hidden;
+    border-radius: 10px 10px 0 0;
+    margin: -1.25rem -1.25rem .75rem -1.25rem;
+    width: calc(100% + 2.5rem);
+}
+.info-obat-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }

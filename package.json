@@ -1,0 +1,11 @@
+{
+  "name": "projekklinik",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Sistem Informasi Manajemen Klinik Polinela",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "node backend/server.js",
+    "test": "node test.js"
+  }
+}
