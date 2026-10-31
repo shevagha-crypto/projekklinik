@@ -8,9 +8,11 @@ let toastTimer;
 const todayKey = localDateKey(new Date());
 let selectedDashboardDate = todayKey;
 
-// API Helper
+// API Helper — ganti ke http://localhost:3000 kalau frontend & backend di port berbeda (Go Live)
+const API_BASE = '';
+
 async function api(path, options = {}) {
-  const res = await fetch(path, {
+  const res = await fetch(API_BASE + path, {
     headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
     ...options,
   });
@@ -133,6 +135,52 @@ $$(".toggle-password").forEach(btn => {
   });
 });
 
+// --- Notifikasi ---
+const notificationBtn = $("#notification-btn");
+const notificationMenu = $("#notification-menu");
+
+let notifications = [
+  { text: "Antrian baru telah ditambahkan", time: "Baru saja" },
+  { text: "Stok obat Paracetamol menipis", time: "2 jam lalu" },
+  { text: "Pasien telah check-in", time: "5 jam lalu" },
+];
+
+function renderNotifications() {
+  const list = $("#notification-list");
+  const empty = $("#notification-empty");
+  list.innerHTML = "";
+  if (notifications.length === 0) {
+    empty.classList.remove("hidden");
+  } else {
+    empty.classList.add("hidden");
+    notifications.forEach(n => {
+      const li = document.createElement("li");
+      li.innerHTML = `<span>${n.text}</span><small>${n.time}</small>`;
+      list.appendChild(li);
+    });
+  }
+}
+
+notificationBtn.addEventListener("click", e => {
+  e.stopPropagation();
+  const isHidden = notificationMenu.classList.contains("hidden");
+  if (isHidden) renderNotifications();
+  notificationMenu.classList.toggle("hidden");
+});
+
+$("#notification-clear").addEventListener("click", e => {
+  e.stopPropagation();
+  notifications = [];
+  renderNotifications();
+  notificationMenu.classList.add("hidden");
+});
+
+document.addEventListener("click", e => {
+  if (!notificationBtn.contains(e.target) && !notificationMenu.contains(e.target)) {
+    notificationMenu.classList.add("hidden");
+  }
+});
+
 $("#login-role").addEventListener("change", setLoginMode);
 
 $("#show-register").addEventListener("click", () => {
@@ -211,6 +259,7 @@ function startSession() {
   $("#profile-name").value = currentUser.name;
   $("#profile-email").value = currentUser.email;
   $("#profile-phone").value = currentUser.phone || "";
+  $("#profile-bio").value = currentUser.bio || "";
   $("#profile-role").value = isAdmin ? "Administrator" : "Pengguna / Pasien";
   $("#profile-heading-name").textContent = currentUser.name;
   $("#profile-email-preview").textContent = currentUser.email;
@@ -685,9 +734,13 @@ function createQueueForm(patientMode) {
     </div>`,
     async form => {
       const data = Object.fromEntries(new FormData(form).entries());
-      const maxNumber = queues.reduce((max, q) => Math.max(max, Number(String(q.number).split("-")[1]) || 0), 0) + 1;
       const now = new Date();
       const visitDate = patientMode ? localDateKey(now) : (data.visitDate || localDateKey(now));
+      
+      // ponytail: reset nomor antrian harian (berdasarkan tanggal kunjungan)
+      const dailyQueues = queues.filter(q => q.date === visitDate);
+      const maxNumber = dailyQueues.reduce((max, q) => Math.max(max, Number(String(q.number).split("-")[1]) || 0), 0) + 1;
+      
       const patientName = (patientMode ? currentUser.name : (data.name || "")).trim();
 
       await api('/api/queues', {
@@ -735,13 +788,14 @@ $("#profile-form").addEventListener("submit", async event => {
   const name = $("#profile-name").value.trim();
   const email = $("#profile-email").value.trim().toLowerCase();
   const phone = $("#profile-phone").value.trim();
+  const bio = $("#profile-bio").value.trim();
 
   try {
     await api(`/api/users/${currentUser.id}`, {
       method: 'PUT',
-      body: JSON.stringify({ name, email, phone })
+      body: JSON.stringify({ name, email, phone, bio })
     });
-    currentUser = { ...currentUser, name, email, phone };
+    currentUser = { ...currentUser, name, email, phone, bio };
     await refreshData();
     $("#top-user-name").textContent = name;
     $("#profile-heading-name").textContent = name;

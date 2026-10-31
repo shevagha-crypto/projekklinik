@@ -19,6 +19,7 @@ const db = new DatabaseSync(DB_PATH);
 if (fs.existsSync(SCHEMA_PATH)) {
   const schemaSql = fs.readFileSync(SCHEMA_PATH, 'utf-8');
   db.exec(schemaSql);
+  try { db.exec("ALTER TABLE users ADD COLUMN bio TEXT DEFAULT ''"); } catch (err) { if (!err.message.includes('duplicate column name')) throw err; }
 }
 
 // Helpers
@@ -115,14 +116,14 @@ const server = http.createServer(async (req, res) => {
           if (identifier.toLowerCase() !== 'admin' || password !== 'klinik123') {
             return sendJSON(res, 401, { error: 'Username atau kata sandi admin salah.' });
           }
-          const admin = db.prepare('SELECT id, name, email, phone, role FROM users WHERE role = ?').get('admin') || {
-            id: 1, name: 'Admin Klinik', email: 'admin@kliniksehat.id', phone: '0812-3456-7890', role: 'admin'
+          const admin = db.prepare('SELECT id, name, email, phone, bio, role FROM users WHERE role = ?').get('admin') || {
+            id: 1, name: 'Admin Klinik', email: 'admin@kliniksehat.id', phone: '0812-3456-7890', bio: '', role: 'admin'
           };
           return sendJSON(res, 200, admin);
         }
 
         const user = db.prepare(
-          "SELECT id, name, email, phone, role FROM users WHERE lower(email) = lower(?) AND password = ? AND role = 'patient'"
+          "SELECT id, name, email, phone, bio, role FROM users WHERE lower(email) = lower(?) AND password = ? AND role = 'patient'"
         ).get(identifier.trim(), password);
 
         if (!user) {
@@ -161,15 +162,16 @@ const server = http.createServer(async (req, res) => {
       const userMatch = pathname.match(/^\/api\/users\/(\d+)$/);
       if (userMatch && method === 'PUT') {
         const id = Number(userMatch[1]);
-        const { name, email, phone } = await parseJSON(req);
+        const { name, email, phone, bio = '' } = await parseJSON(req);
+        if (!name?.trim() || !email?.trim() || typeof bio !== 'string' || bio.length > 1000) return sendJSON(res, 400, { error: 'Nama, email, dan bio (maksimal 1000 karakter) wajib valid.' });
         const dup = db.prepare('SELECT id FROM users WHERE lower(email) = lower(?) AND id != ?').get(email.trim(), id);
         if (dup) {
           return sendJSON(res, 409, { error: 'Email sudah digunakan akun lain.' });
         }
 
         const prevUser = db.prepare('SELECT email FROM users WHERE id = ?').get(id);
-        db.prepare('UPDATE users SET name = ?, email = ?, phone = ? WHERE id = ?').run(
-          name.trim(), email.trim().toLowerCase(), phone ? phone.trim() : '', id
+        db.prepare('UPDATE users SET name = ?, email = ?, phone = ?, bio = ? WHERE id = ?').run(
+          name.trim(), email.trim().toLowerCase(), phone ? phone.trim() : '', bio.trim(), id
         );
 
         if (prevUser) {
@@ -178,7 +180,7 @@ const server = http.createServer(async (req, res) => {
           );
         }
 
-        return sendJSON(res, 200, { id, name: name.trim(), email: email.trim().toLowerCase(), phone: phone || '' });
+        return sendJSON(res, 200, { id, name: name.trim(), email: email.trim().toLowerCase(), phone: phone || '', bio: bio.trim() });
       }
 
       // GET /api/medicines
@@ -226,7 +228,8 @@ const server = http.createServer(async (req, res) => {
 
       // GET /api/queues
       if (pathname === '/api/queues' && method === 'GET') {
-        const queues = db.prepare('SELECT * FROM queues ORDER BY id DESC').all();
+        const today = new Date().toISOString().split('T')[0];
+        const queues = db.prepare('SELECT * FROM queues WHERE date = ? ORDER BY id DESC').all(today);
         return sendJSON(res, 200, queues);
       }
 

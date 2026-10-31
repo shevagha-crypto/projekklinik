@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT UNIQUE NOT NULL,
   password TEXT NOT NULL,
   phone TEXT DEFAULT '',
+  bio TEXT DEFAULT '',
   role TEXT NOT NULL CHECK(role IN ('admin', 'patient')),
   createdAt TEXT NOT NULL
 );

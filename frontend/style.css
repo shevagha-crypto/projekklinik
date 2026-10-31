@@ -482,6 +482,7 @@ select:focus {
 }
 
 .top-actions {
+    position: relative;
     gap: 22px
 }
 
@@ -501,6 +502,87 @@ select:focus {
     height: 5px;
     border-radius: 50%;
     background: #e59b59
+}
+
+.notification-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    width: min(320px, 100vw - 32px);
+    margin-top: 8px;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: 13px;
+    box-shadow: var(--shadow);
+    z-index: 50;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.notification-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+    background: #f8fafa;
+}
+
+.notification-header strong {
+    font-size: 13px;
+    color: var(--ink);
+}
+
+.notification-clear {
+    border: 0;
+    background: transparent;
+    color: var(--teal);
+    font-weight: 700;
+    font-size: 11px;
+    padding: 0;
+    cursor: pointer;
+}
+
+.notification-clear:hover {
+    text-decoration: underline;
+}
+
+.notification-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.notification-list li {
+    padding: 12px 16px;
+    font-size: 12px;
+    color: var(--ink);
+    border-bottom: 1px solid #f2f6f6;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.notification-list li:last-child {
+    border-bottom: 0;
+}
+
+.notification-list li small {
+    color: var(--muted);
+    font-size: 10px;
+    display: block;
+    margin-top: 4px;
+}
+
+.notification-empty {
+    padding: 20px 16px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
 }
 
 .user-chip {
