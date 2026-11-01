@@ -126,8 +126,11 @@
         <button class="nav-link" data-page="obat"><span class="nav-icon">▤</span> Data Obat</button>
         <button class="nav-link" data-page="antrian"><span class="nav-icon">☷</span> Antrian</button>
         <button class="nav-link" data-page="profil"><span class="nav-icon">♙</span> Profil</button>
+        <button class="nav-link hidden" data-page="jadwal" id="admin-jadwal-nav"><span class="nav-icon">☖</span> Jadwal Dokter</button>
         <button class="nav-link hidden" data-page="pasien" id="patient-nav"><span class="nav-icon">▣</span> Antrian Saya</button>
         <button class="nav-link hidden" data-page="info-obat" id="info-obat-nav"><span class="nav-icon">▤</span> Informasi Obat</button>
+        <button class="nav-link hidden" data-page="lokasi" id="patient-lokasi-nav"><span class="nav-icon">⌖</span> Lokasi Klinik</button>
+        <button class="nav-link hidden" data-page="jadwal" id="patient-jadwal-nav"><span class="nav-icon">☖</span> Jadwal Dokter</button>
       </nav>
 
       <div class="sidebar-bottom">
@@ -461,6 +464,42 @@
           <h2>Informasi</h2>
           <p class="muted">Silakan datang sesuai urutan antrian. Jika status berubah menjadi Selesai, pelayanan pada antrian tersebut telah ditutup.</p>
         </article>
+
+      </section>
+
+      <!-- Page: Lokasi Klinik (Patient Only) -->
+      <section class="page" id="page-lokasi">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">INFORMASI KLINIK</p>
+            <h1>Lokasi Klinik</h1>
+            <p class="muted">Temukan lokasi dan informasi kunjungan Klinik Polinela.</p>
+          </div>
+        </div>
+        <article class="panel location-panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Lokasi Klinik</h2>
+              <p class="muted">Kunjungi kami di alamat berikut.</p>
+            </div>
+          </div>
+          <div class="location-wrap">
+            <div class="location-map">
+              <iframe
+                loading="lazy"
+                style="border:0"
+                allowfullscreen=""
+                src="https://www.google.com/maps?q=Jalan+Soekarno-Hatta+No.+10,+Rajabasa+Raya,+Kecamatan+Rajabasa,+Kota+Bandar+Lampung,+Lampung+35141+Polinela&hl=id&z=16&output=embed"
+              ></iframe>
+            </div>
+            <div class="location-detail">
+              <h3>Klinik Polinela</h3>
+              <p class="muted">Jalan Soekarno-Hatta No. 10, Rajabasa Raya, Kecamatan Rajabasa, Kota Bandar Lampung, Provinsi Lampung, 35141</p>
+              <p>Klinik kami menyediakan layanan pemeriksaan umum, dan pengobatan untuk seluruh pasien. Silakan datang sesuai urutan antrian yang telah Anda buat melalui sistem ini.</p>
+              <p class="muted"><strong>Jam buka:</strong> Senin - Jumat, 08.00 - 15.00 WIB</p>
+            </div>
+          </div>
+        </article>
       </section>
 
       <!-- Page: Informasi Obat (Patient Only) -->
@@ -482,6 +521,43 @@
             <input id="info-obat-search" class="search-input" placeholder="⌕  Cari obat..." />
           </div>
           <div id="info-obat-list" class="info-obat-grid"></div>
+        </article>
+      </section>
+
+      <!-- Page: Jadwal Dokter (Admin: kelola / Pasien: lihat) -->
+      <section class="page" id="page-jadwal">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">JADWAL DOKTER</p>
+            <h1 id="jadwal-title">Jadwal Dokter</h1>
+            <p class="muted" id="jadwal-subtitle"></p>
+          </div>
+          <button id="add-schedule-btn" class="btn primary hidden">＋ Tambah Jadwal</button>
+        </div>
+
+        <article class="panel">
+          <div class="panel-heading section-tools">
+            <div>
+              <h2 id="jadwal-list-heading">Daftar Jadwal Praktek</h2>
+              <p class="muted" id="jadwal-list-desc"></p>
+            </div>
+          </div>
+          <div id="jadwal-admin-table" class="table-wrap hidden">
+            <table>
+              <thead>
+                <tr>
+                  <th>Dokter</th>
+                  <th>Poli</th>
+                  <th>Hari</th>
+                  <th>Jam Praktek</th>
+                  <th>Status</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="admin-jadwal-body"></tbody>
+            </table>
+          </div>
+          <div id="jadwal-patient-grid" class="info-obat-grid hidden"></div>
         </article>
       </section>
 

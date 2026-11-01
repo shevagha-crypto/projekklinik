@@ -1044,6 +1044,43 @@ td strong {
     background: #49b294
 }
 
+.location-wrap {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(220px, .8fr);
+    gap: 22px;
+    align-items: center
+}
+
+.location-map {
+    overflow: hidden;
+    border-radius: 10px;
+    min-height: 260px;
+    background: var(--teal-light)
+}
+
+.location-map iframe {
+    display: block;
+    width: 100%;
+    height: 260px
+}
+
+.location-detail h3 {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 15px;
+    margin: 0 0 10px
+}
+
+.location-detail p:not(.muted) {
+    font-size: 12px;
+    line-height: 1.65;
+    color: #5f7176;
+    margin: 16px 0
+}
+
+.location-detail .muted strong {
+    color: var(--ink)
+}
+
 .profile-layout {
     display: grid;
     grid-template-columns: minmax(230px, .8fr) minmax(0, 1.8fr);
@@ -1451,6 +1488,11 @@ td strong {
 
     .summary-strip .stat-icon {
         display: none
+    }
+
+    .location-wrap {
+        grid-template-columns: 1fr;
+        gap: 16px
     }
 
     .profile-layout {

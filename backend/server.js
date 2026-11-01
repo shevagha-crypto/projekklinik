@@ -20,6 +20,7 @@ if (fs.existsSync(SCHEMA_PATH)) {
   const schemaSql = fs.readFileSync(SCHEMA_PATH, 'utf-8');
   db.exec(schemaSql);
   try { db.exec("ALTER TABLE users ADD COLUMN bio TEXT DEFAULT ''"); } catch (err) { if (!err.message.includes('duplicate column name')) throw err; }
+  try { db.exec("ALTER TABLE queues ADD COLUMN complaint TEXT DEFAULT ''"); } catch (err) { if (!err.message.includes('duplicate column name')) throw err; }
 }
 
 // Helpers
@@ -222,6 +223,57 @@ const server = http.createServer(async (req, res) => {
         }
         if (method === 'DELETE') {
           db.prepare('DELETE FROM medicines WHERE id = ?').run(id);
+          return sendJSON(res, 200, { success: true, id });
+        }
+      }
+
+      // GET /api/doctor-schedules (publik: admin & pasien)
+      if (pathname === '/api/doctor-schedules' && method === 'GET') {
+        const schedules = db.prepare('SELECT * FROM doctor_schedules ORDER BY id ASC').all();
+        return sendJSON(res, 200, schedules);
+      }
+
+      // POST /api/doctor-schedules (admin)
+      if (pathname === '/api/doctor-schedules' && method === 'POST') {
+        const body = await parseJSON(req);
+        const { doctor_name, clinic, day, start_time, end_time, is_active = 1 } = body;
+        if (!doctor_name?.trim() || !clinic?.trim() || !day || !start_time || !end_time) {
+          return sendJSON(res, 400, { error: 'Nama dokter, poli, hari, dan jam wajib diisi.' });
+        }
+        const createdAt = new Date().toISOString();
+        const insert = db.prepare(
+          'INSERT INTO doctor_schedules (doctor_name, clinic, day, start_time, end_time, is_active, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        ).run(doctor_name.trim(), clinic.trim(), day, start_time, end_time, Number(is_active) ? 1 : 0, createdAt);
+
+        return sendJSON(res, 201, {
+          id: Number(insert.lastInsertRowid),
+          doctor_name: doctor_name.trim(),
+          clinic: clinic.trim(),
+          day,
+          start_time,
+          end_time,
+          is_active: Number(is_active) ? 1 : 0,
+          createdAt,
+        });
+      }
+
+      // PUT & DELETE /api/doctor-schedules/:id (admin)
+      const schedMatch = pathname.match(/^\/api\/doctor-schedules\/(\d+)$/);
+      if (schedMatch) {
+        const id = Number(schedMatch[1]);
+        if (method === 'PUT') {
+          const body = await parseJSON(req);
+          const { doctor_name, clinic, day, start_time, end_time, is_active = 1 } = body;
+          if (!doctor_name?.trim() || !clinic?.trim() || !day || !start_time || !end_time) {
+            return sendJSON(res, 400, { error: 'Nama dokter, poli, hari, dan jam wajib diisi.' });
+          }
+          db.prepare('UPDATE doctor_schedules SET doctor_name = ?, clinic = ?, day = ?, start_time = ?, end_time = ?, is_active = ? WHERE id = ?').run(
+            doctor_name.trim(), clinic.trim(), day, start_time, end_time, Number(is_active) ? 1 : 0, id
+          );
+          return sendJSON(res, 200, { success: true, id });
+        }
+        if (method === 'DELETE') {
+          db.prepare('DELETE FROM doctor_schedules WHERE id = ?').run(id);
           return sendJSON(res, 200, { success: true, id });
         }
       }

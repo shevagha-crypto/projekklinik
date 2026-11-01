@@ -49,3 +49,20 @@ INSERT OR IGNORE INTO medicines (id, name, category, form, stock, description, i
 (6, 'Oralit', 'Rehidrasi', 'Serbuk', 30, 'Larutan rehidrasi oral untuk mengganti cairan dan elektrolit yang hilang akibat diare.', '');
 
 -- Data antrian sengaja kosong; hanya pendaftaran pasien nyata yang disimpan.
+
+CREATE TABLE IF NOT EXISTS doctor_schedules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  doctor_name TEXT NOT NULL,
+  clinic TEXT NOT NULL,
+  day TEXT NOT NULL CHECK(day IN ('Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu')),
+  start_time TEXT NOT NULL,
+  end_time TEXT NOT NULL,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  createdAt TEXT NOT NULL
+);
+
+INSERT OR IGNORE INTO doctor_schedules (id, doctor_name, clinic, day, start_time, end_time, is_active, createdAt) VALUES
+(1, 'dr. Dian', 'Poli Umum', 'Senin', '08:00', '14:00', 1, '2026-01-01T00:00:00.000Z'),
+(2, 'dr. Dian', 'Poli Umum', 'Rabu', '08:00', '14:00', 1, '2026-01-01T00:00:00.000Z'),
+(3, 'dr. Tya', 'Poli Umum', 'Selasa', '09:00', '15:00', 1, '2026-01-01T00:00:00.000Z'),
+(4, 'dr. Tya', 'Poli Umum', 'Kamis', '09:00', '15:00', 1, '2026-01-01T00:00:00.000Z');

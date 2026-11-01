@@ -3,6 +3,7 @@ const $$ = (selector) => [...document.querySelectorAll(selector)];
 
 let medicines = [];
 let queues = [];
+let schedules = [];
 let currentUser = null;
 let toastTimer;
 const todayKey = localDateKey(new Date());
@@ -23,12 +24,14 @@ async function api(path, options = {}) {
 
 async function refreshData() {
   try {
-    const [meds, qList] = await Promise.all([
+    const [meds, qList, sList] = await Promise.all([
       api('/api/medicines'),
-      api('/api/queues')
+      api('/api/queues'),
+      api('/api/doctor-schedules')
     ]);
     medicines = meds;
     queues = qList;
+    schedules = sList;
   } catch (err) {
     console.error('Gagal mengambil data:', err);
   }
@@ -251,8 +254,11 @@ function startSession() {
   $$(".nav-link[data-page='home'], .nav-link[data-page='obat'], .nav-link[data-page='antrian']").forEach(link =>
     link.classList.toggle("hidden", !isAdmin)
   );
+  $("#admin-jadwal-nav").classList.toggle("hidden", !isAdmin);
   $("#patient-nav").classList.toggle("hidden", isAdmin);
   $("#info-obat-nav").classList.toggle("hidden", isAdmin);
+  $("#patient-lokasi-nav").classList.toggle("hidden", isAdmin);
+  $("#patient-jadwal-nav").classList.toggle("hidden", isAdmin);
   $("#top-user-name").textContent = currentUser.name;
   $(".user-chip small").textContent = isAdmin ? "Administrator" : "Pengguna / Pasien";
   $(".avatar").textContent = initials(currentUser.name).slice(0, 1);
@@ -277,11 +283,13 @@ function startSession() {
     renderHome();
     renderMedicines();
     renderQueues();
+    renderSchedules();
     startPolling();
   } else {
     showPage("pasien");
     renderPatientQueues();
     renderInfoObat();
+    renderSchedules();
     startPolling();
   }
   toast(`Berhasil masuk sebagai ${isAdmin ? "Admin" : "Pengguna"}`);
@@ -298,7 +306,7 @@ $("#logout-btn").addEventListener("click", () => {
 
 function showPage(page) {
   const isAdmin = currentUser?.role === "admin";
-  if (!isAdmin && page !== "pasien" && page !== "profil" && page !== "info-obat") page = "pasien";
+  if (!isAdmin && page !== "pasien" && page !== "profil" && page !== "info-obat" && page !== "lokasi" && page !== "jadwal") page = "pasien";
   $$(".page").forEach(section => section.classList.toggle("active", section.id === `page-${page}`));
   $$(".nav-link").forEach(link => link.classList.toggle("active", link.dataset.page === page));
   const labels = {
@@ -307,7 +315,9 @@ function showPage(page) {
     antrian: "Antrian",
     profil: "Profil",
     pasien: "Antrian Saya",
-    "info-obat": "Informasi Obat"
+    "info-obat": "Informasi Obat",
+    lokasi: "Lokasi Klinik",
+    jadwal: "Jadwal Dokter"
   };
   $("#breadcrumb-current").textContent = labels[page] || "Home";
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -542,6 +552,187 @@ async function cancelQueue(id) {
 }
 window.cancelQueue = cancelQueue;
 
+function renderSchedules() {
+  const isAdmin = currentUser?.role === "admin";
+  $("#add-schedule-btn").classList.toggle("hidden", !isAdmin);
+  $("#jadwal-admin-table").classList.toggle("hidden", !isAdmin);
+  $("#jadwal-patient-grid").classList.toggle("hidden", isAdmin);
+
+  if (isAdmin) {
+    $("#jadwal-subtitle").textContent = "Lihat dan kelola jadwal praktek dokter klinik.";
+    $("#jadwal-list-desc").textContent = "Admin dapat menambah, mengedit, atau menghapus jadwal dokter.";
+    $("#admin-jadwal-body").innerHTML = schedules.length
+      ? schedules.map(s => `
+        <tr>
+          <td><strong>${escapeHTML(s.doctor_name)}</strong></td>
+          <td>${escapeHTML(s.clinic)}</td>
+          <td>${escapeHTML(s.day)}</td>
+          <td>${escapeHTML(s.start_time)} - ${escapeHTML(s.end_time)}</td>
+          <td>${s.is_active ? '<span class="status done">Aktif</span>' : '<span class="status waiting">Nonaktif</span>'}</td>
+          <td>
+            <div class="action-group">
+              <button class="row-action" data-edit-schedule="${s.id}">Edit</button>
+              <button class="row-action danger" data-delete-schedule="${s.id}">Hapus</button>
+            </div>
+          </td>
+        </tr>
+      `).join("")
+      : '<tr><td colspan="6" class="empty-cell">Belum ada data jadwal dokter.</td></tr>';
+
+    $$("[data-edit-schedule]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const s = schedules.find(item => item.id === Number(btn.dataset.editSchedule));
+        if (!s) return;
+        openModal(
+          "Edit Jadwal Dokter",
+          `<label>Nama Dokter</label>
+           <input name="doctor_name" value="${escapeHTML(s.doctor_name)}" required />
+           <label>Poli</label>
+           <input name="clinic" value="${escapeHTML(s.clinic)}" required />
+           <div class="form-row">
+             <div>
+               <label>Hari</label>
+               <select name="day">
+                 ${['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu'].map(d => `<option ${s.day === d ? 'selected' : ''}>${d}</option>`).join("")}
+               </select>
+             </div>
+             <div>
+               <label>Status</label>
+               <select name="is_active">
+                 <option value="1" ${s.is_active ? 'selected' : ''}>Aktif</option>
+                 <option value="0" ${!s.is_active ? 'selected' : ''}>Nonaktif</option>
+               </select>
+             </div>
+           </div>
+           <div class="form-row">
+             <div>
+               <label>Jam Mulai</label>
+               <input name="start_time" type="time" value="${escapeHTML(s.start_time)}" required />
+             </div>
+             <div>
+               <label>Jam Selesai</label>
+               <input name="end_time" type="time" value="${escapeHTML(s.end_time)}" required />
+             </div>
+           </div>`,
+          async form => {
+            const data = Object.fromEntries(new FormData(form).entries());
+            await api(`/api/doctor-schedules/${s.id}`, {
+              method: 'PUT',
+              body: JSON.stringify({
+                doctor_name: data.doctor_name.trim(),
+                clinic: data.clinic.trim(),
+                day: data.day,
+                start_time: data.start_time,
+                end_time: data.end_time,
+                is_active: Number(data.is_active)
+              })
+            });
+            await refreshData();
+            renderSchedules();
+            toast("Jadwal dokter berhasil diperbarui");
+          }
+        );
+      });
+    });
+
+    $$("[data-delete-schedule]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        if (!confirm("Hapus jadwal ini?")) return;
+        const id = Number(btn.dataset.deleteSchedule);
+        try {
+          await api(`/api/doctor-schedules/${id}`, { method: 'DELETE' });
+          await refreshData();
+          renderSchedules();
+          toast("Jadwal dokter dihapus");
+        } catch (err) {
+          toast(err.message);
+        }
+      });
+    });
+  } else {
+    $("#jadwal-subtitle").textContent = "Daftar jadwal praktek dokter yang tersedia di Klinik Polinela.";
+    $("#jadwal-list-desc").textContent = "Silakan datang sesuai hari dan jam praktek dokter.";
+    const activeSchedules = schedules.filter(s => s.is_active);
+    $("#jadwal-patient-grid").innerHTML = activeSchedules.length
+      ? activeSchedules.map(s => `
+        <div class="info-obat-card">
+          <div class="info-obat-header">
+            <div class="patient-avatar" style="width:40px;height:40px;font-size:12px;">DR</div>
+            <div>
+              <strong>${escapeHTML(s.doctor_name)}</strong>
+              <small>${escapeHTML(s.clinic)}</small>
+            </div>
+            <span class="status done">Aktif</span>
+          </div>
+          <div style="font-size:11px; margin-top:8px; line-height: 1.6; color: var(--muted);">
+            <div><span style="color: var(--teal); font-weight: 700;">HARI</span> ${escapeHTML(s.day).toUpperCase()}</div>
+            <div><span style="color: var(--teal); font-weight: 700;">JAM</span> ${escapeHTML(s.start_time)} - ${escapeHTML(s.end_time)}</div>
+          </div>
+        </div>
+      `).join("")
+      : '<p class="muted" style="padding:1.5rem;text-align:center">Tidak ada jadwal dokter aktif saat ini.</p>';
+  }
+}
+
+$("#add-schedule-btn").addEventListener("click", () => {
+  if (currentUser?.role !== "admin") return;
+  openModal(
+    "Tambah Jadwal Dokter",
+    `<label>Nama Dokter</label>
+     <input name="doctor_name" placeholder="Contoh: dr. Dian" required />
+     <label>Poli</label>
+     <input name="clinic" value="Poli Umum" required />
+     <div class="form-row">
+       <div>
+         <label>Hari</label>
+         <select name="day">
+           <option>Senin</option>
+           <option>Selasa</option>
+           <option>Rabu</option>
+           <option>Kamis</option>
+           <option>Jumat</option>
+           <option>Sabtu</option>
+           <option>Minggu</option>
+         </select>
+       </div>
+       <div>
+         <label>Status</label>
+         <select name="is_active">
+           <option value="1">Aktif</option>
+           <option value="0">Nonaktif</option>
+         </select>
+       </div>
+     </div>
+     <div class="form-row">
+       <div>
+         <label>Jam Mulai</label>
+         <input name="start_time" type="time" value="08:00" required />
+       </div>
+       <div>
+         <label>Jam Selesai</label>
+         <input name="end_time" type="time" value="14:00" required />
+       </div>
+     </div>`,
+    async form => {
+      const data = Object.fromEntries(new FormData(form).entries());
+      await api('/api/doctor-schedules', {
+        method: 'POST',
+        body: JSON.stringify({
+          doctor_name: data.doctor_name.trim(),
+          clinic: data.clinic.trim(),
+          day: data.day,
+          start_time: data.start_time,
+          end_time: data.end_time,
+          is_active: Number(data.is_active)
+        })
+      });
+      await refreshData();
+      renderSchedules();
+      toast("Jadwal dokter berhasil ditambahkan");
+    }
+  );
+});
+
 function renderInfoObat() {
   const searchEl = $("#info-obat-search");
   if (!searchEl) return;
@@ -719,10 +910,10 @@ function createQueueForm(patientMode) {
     : `<label>Tanggal kunjungan</label><input name="visitDate" type="date" value="${localDateKey(new Date())}" max="${localDateKey(new Date())}" required />`;
   const complaintField = `<label>Keluhan</label><textarea name="complaint" rows="3" placeholder="Contoh: demam, sakit kepala, batuk..." required></textarea>`;
 
-  openModal(
-    patientMode ? "Daftar Antrian Pemeriksaan" : "Tambah Pasien / Antrian",
-    `${patientField}${visitDateField}${complaintField}
-    <div class="form-row">
+  // patient mode: only name (prefilled) and complaint
+  const extraFields = patientMode
+    ? ""
+    : `<div class="form-row">
       <div>
         <label>Poli</label>
         <select name="clinic"><option>Poli Umum</option></select>
@@ -731,7 +922,11 @@ function createQueueForm(patientMode) {
         <label>Dokter</label>
         <select name="doctor"><option>dr. Dian</option><option>dr. Tya</option></select>
       </div>
-    </div>`,
+    </div>`;
+
+  openModal(
+    patientMode ? "Daftar Antrian Pemeriksaan" : "Tambah Pasien / Antrian",
+    `${patientField}${visitDateField}${complaintField}${extraFields}`,
     async form => {
       const data = Object.fromEntries(new FormData(form).entries());
       const now = new Date();
@@ -748,8 +943,8 @@ function createQueueForm(patientMode) {
         body: JSON.stringify({
           number: `A-${String(maxNumber).padStart(3, "0")}`,
           name: patientName,
-          doctor: data.doctor,
-          clinic: data.clinic,
+          doctor: patientMode ? "" : data.doctor,
+          clinic: patientMode ? "" : data.clinic,
           time: now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
           date: visitDate,
           createdAt: now.toISOString(),
@@ -774,7 +969,7 @@ $("#add-queue-btn").addEventListener("click", () => {
   if (currentUser?.role === "admin") createQueueForm(false);
 });
 $("#patient-add-queue-btn").addEventListener("click", () => {
-  if (currentUser?.role === "patient") createQueueForm(true);
+  if (currentUser && currentUser.role !== "admin") createQueueForm(true);
 });
 
 $("#medicine-search").addEventListener("input", renderMedicines);
@@ -841,6 +1036,7 @@ function startPolling() {
       renderHome();
     } else {
       renderPatientQueues();
+      renderSchedules();
     }
   }, 5000); // ponytail: 5s polling; upgrade ke WebSocket jika perlu realtime <1s
 }
