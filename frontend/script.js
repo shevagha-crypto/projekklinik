@@ -9,17 +9,46 @@ let toastTimer;
 const todayKey = localDateKey(new Date());
 let selectedDashboardDate = todayKey;
 
-// API Helper — ganti ke http://localhost:3000 kalau frontend & backend di port berbeda (Go Live)
-const API_BASE = '';
+// Penyimpanan lokal: aplikasi berjalan langsung lewat Live Server tanpa Node.js/database.
+const STORE = 'klinik-polinela-v1';
+const readStore = () => JSON.parse(localStorage.getItem(STORE) || '{"users":[],"medicines":[],"queues":[],"schedules":[]}');
+const writeStore = data => localStorage.setItem(STORE, JSON.stringify(data));
+const bodyOf = options => options.body ? JSON.parse(options.body) : {};
+const nextId = list => list.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0) + 1;
 
 async function api(path, options = {}) {
-  const res = await fetch(API_BASE + path, {
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-    ...options,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'Terjadi kesalahan sistem');
-  return data;
+  const method = options.method || 'GET';
+  const data = readStore();
+  const body = bodyOf(options);
+  const fail = (message, status = 400) => { const error = new Error(message); error.status = status; throw error; };
+  if (path === '/api/auth/login' && method === 'POST') {
+    if (body.role === 'admin') {
+      if (body.identifier.toLowerCase() !== 'admin' || body.password !== 'klinik123') fail('Username atau kata sandi admin salah.', 401);
+      return { id: 1, name: 'Admin Klinik', email: 'admin@kliniksehat.id', phone: '0812-3456-7890', bio: '', role: 'admin' };
+    }
+    const user = data.users.find(u => u.email.toLowerCase() === body.identifier.toLowerCase() && u.password === body.password);
+    if (!user) fail('Akun pasien tidak ditemukan atau kata sandi salah.', 401);
+    return { ...user, password: undefined };
+  }
+  if (path === '/api/auth/register' && method === 'POST') {
+    if (!body.name || !body.email || !body.password) fail('Nama, email, dan kata sandi wajib diisi.');
+    if (data.users.some(u => u.email.toLowerCase() === body.email.toLowerCase())) fail('Email sudah terdaftar. Gunakan email lain.', 409);
+    const user = { id: nextId(data.users), name: body.name.trim(), email: body.email.trim().toLowerCase(), password: body.password, phone: body.phone || '', bio: '', role: 'patient', createdAt: new Date().toISOString() };
+    data.users.push(user); writeStore(data); return { ...user, password: undefined };
+  }
+  const match = path.match(/^\/api\/(medicines|queues|doctor-schedules|users)\/?(\d+)?$/);
+  if (!match) fail('Data tidak ditemukan.', 404);
+  const type = match[1], id = match[2] ? Number(match[2]) : null;
+  const key = { medicines: 'medicines', queues: 'queues', 'doctor-schedules': 'schedules', users: 'users' }[type];
+  if (type === 'users' && method === 'PUT') {
+    const user = data.users.find(u => u.id === id); if (!user) fail('Pengguna tidak ditemukan.', 404);
+    Object.assign(user, body); writeStore(data); return { ...user, password: undefined };
+  }
+  if (method === 'GET') return key === 'queues' ? data.queues : data[key];
+  if (method === 'DELETE') { data[key] = data[key].filter(item => item.id !== id); writeStore(data); return { ok: true }; }
+  if (method === 'PUT' || method === 'PATCH') { const item = data[key].find(x => x.id === id); if (!item) fail('Data tidak ditemukan.', 404); Object.assign(item, body); writeStore(data); return item; }
+  if (method === 'POST') { const item = { ...body, id: nextId(data[key]), createdAt: body.createdAt || new Date().toISOString() }; data[key].push(item); writeStore(data); return item; }
+  fail('Metode tidak didukung.', 405);
 }
 
 async function refreshData() {
