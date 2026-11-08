@@ -5,7 +5,7 @@
   "description": "Sistem Informasi Manajemen Klinik Polinela",
   "scripts": {
     "start": "node backend/server.js",
-    "dev": "node backend/server.js",
+    "dev": "node backend/server.js 3002",
     "test": "node test.js"
   }
 }

@@ -11,7 +11,7 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const FRONTEND_DIR = path.resolve(ROOT_DIR, 'frontend');
 const DB_PATH = path.resolve(ROOT_DIR, 'database', 'clinic.db');
 const SCHEMA_PATH = path.resolve(ROOT_DIR, 'database', 'schema.sql');
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = Number(process.env.PORT || process.argv[2]) || 3000;
 
 // Inisialisasi Database SQLite dengan performa optimal
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
@@ -26,41 +26,76 @@ db.exec(`
 `);
 
 if (fs.existsSync(SCHEMA_PATH)) {
+  try { db.exec("ALTER TABLE users ADD COLUMN bio TEXT DEFAULT ''"); } catch (_) {}
+  try { db.exec("ALTER TABLE users ADD COLUMN age INTEGER"); } catch (_) {}
+  try { db.exec("ALTER TABLE users ADD COLUMN status TEXT DEFAULT ''"); } catch (_) {}
+  try { db.exec("ALTER TABLE users ADD COLUMN photo TEXT DEFAULT ''"); } catch (_) {}
+  try { db.exec("ALTER TABLE queues ADD COLUMN complaint TEXT DEFAULT ''"); } catch (_) {}
+  try { db.exec("ALTER TABLE medicines ADD COLUMN dosage TEXT DEFAULT ''"); } catch (_) {}
+  try { db.exec("ALTER TABLE medicines ADD COLUMN sideEffects TEXT DEFAULT ''"); } catch (_) {}
   const schemaSql = fs.readFileSync(SCHEMA_PATH, 'utf-8');
   db.exec(schemaSql);
-  try { db.exec("ALTER TABLE users ADD COLUMN bio TEXT DEFAULT ''"); } catch (err) { if (!err.message.includes('duplicate column name')) throw err; }
-  try { db.exec("ALTER TABLE queues ADD COLUMN complaint TEXT DEFAULT ''"); } catch (err) { if (!err.message.includes('duplicate column name')) throw err; }
+  try {
+    db.exec(`
+      UPDATE medicines SET
+        dosage = CASE id
+          WHEN 1 THEN 'Dewasa: 1 tablet 3-4 kali sehari setelah makan. Anak 6-12 tahun: 1/2 - 1 tablet 3-4 kali sehari.'
+          WHEN 2 THEN 'Dewasa: 1 kapsul tiap 8 jam sesudah makan. Harus dihabiskan sesuai anjuran dokter.'
+          WHEN 3 THEN '1 tablet sekali sehari setelah makan.'
+          WHEN 4 THEN '1-2 tablet dikunyah 1-2 jam setelah makan dan menjelang tidur.'
+          WHEN 5 THEN 'Dewasa & anak >12 tahun: 1 tablet sekali sehari pada malam hari.'
+          WHEN 6 THEN 'Larutkan 1 sachet ke dalam 200 ml air matang. Minum bertahap setiap diare.'
+          ELSE dosage
+        END,
+        sideEffects = CASE id
+          WHEN 1 THEN 'Jarang terjadi; pemakaian berlebih dapat merusak fungsi hati.'
+          WHEN 2 THEN 'Mual, diare, ruam kulit, atau reaksi alergi.'
+          WHEN 3 THEN 'Dosis berlebih dapat memicu kram perut atau diare.'
+          WHEN 4 THEN 'Sembelit, diare ringan, atau kembung.'
+          WHEN 5 THEN 'Kantuk, mulut kering, lelah, atau pusing.'
+          WHEN 6 THEN 'Umumnya aman jika takaran air tepat.'
+          ELSE sideEffects
+        END
+      WHERE (dosage IS NULL OR dosage = '') AND id IN (1, 2, 3, 4, 5, 6);
+    `);
+  } catch (_) {}
   // Index untuk percepat query filtering antrian & dokter
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_queues_date ON queues(date);
     CREATE INDEX IF NOT EXISTS idx_queues_patientEmail ON queues(patientEmail);
     CREATE INDEX IF NOT EXISTS idx_doctor_schedules_active ON doctor_schedules(is_active);
+    CREATE INDEX IF NOT EXISTS idx_orders_userId ON orders(userId);
+    CREATE INDEX IF NOT EXISTS idx_orders_date ON orders(date);
   `);
 }
 
 // Pre-compiled prepared statements untuk hindari re-kompilasi query
 const stmts = {
-  getAdmin: db.prepare('SELECT id, name, email, phone, bio, role FROM users WHERE role = ?'),
-  getUserLogin: db.prepare("SELECT id, name, email, phone, bio, role FROM users WHERE lower(email) = lower(?) AND password = ? AND role = 'patient'"),
+  getAdmin: db.prepare('SELECT id, name, email, phone, bio, role, age, status, photo FROM users WHERE role = ?'),
+  getUserLogin: db.prepare("SELECT id, name, email, phone, bio, role, age, status, photo FROM users WHERE lower(email) = lower(?) AND password = ? AND role = 'patient'"),
   getUserByEmail: db.prepare('SELECT id FROM users WHERE lower(email) = lower(?)'),
   getUserById: db.prepare('SELECT email FROM users WHERE id = ?'),
   checkDupEmail: db.prepare('SELECT id FROM users WHERE lower(email) = lower(?) AND id != ?'),
   insertUser: db.prepare("INSERT INTO users (name, email, password, phone, role, createdAt) VALUES (?, ?, ?, ?, 'patient', ?)"),
-  updateUser: db.prepare('UPDATE users SET name = ?, email = ?, phone = ?, bio = ? WHERE id = ?'),
+  updateUser: db.prepare('UPDATE users SET name = ?, email = ?, phone = ?, bio = ?, age = ?, status = ?, photo = ? WHERE id = ?'),
   updateQueuesUser: db.prepare('UPDATE queues SET patientEmail = ?, name = ? WHERE lower(patientEmail) = lower(?)'),
   getMedicines: db.prepare('SELECT * FROM medicines ORDER BY id ASC'),
-  insertMedicine: db.prepare('INSERT INTO medicines (name, category, form, stock, description, image) VALUES (?, ?, ?, ?, ?, ?)'),
-  updateMedicineWithImg: db.prepare('UPDATE medicines SET stock = ?, image = ? WHERE id = ?'),
-  updateMedicineStock: db.prepare('UPDATE medicines SET stock = ? WHERE id = ?'),
+  insertMedicine: db.prepare('INSERT INTO medicines (name, category, form, stock, description, dosage, sideEffects, image) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'),
+  updateMedicine: db.prepare('UPDATE medicines SET stock = ?, image = ?, description = ?, dosage = ?, sideEffects = ? WHERE id = ?'),
   deleteMedicine: db.prepare('DELETE FROM medicines WHERE id = ?'),
   getSchedules: db.prepare('SELECT * FROM doctor_schedules ORDER BY id ASC'),
   insertSchedule: db.prepare('INSERT INTO doctor_schedules (doctor_name, clinic, day, start_time, end_time, is_active, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)'),
   updateSchedule: db.prepare('UPDATE doctor_schedules SET doctor_name = ?, clinic = ?, day = ?, start_time = ?, end_time = ?, is_active = ? WHERE id = ?'),
   deleteSchedule: db.prepare('DELETE FROM doctor_schedules WHERE id = ?'),
+  getAllQueues: db.prepare('SELECT * FROM queues ORDER BY id DESC'),
   getQueuesByDate: db.prepare('SELECT * FROM queues WHERE date = ? ORDER BY id DESC'),
   insertQueue: db.prepare('INSERT INTO queues (number, name, doctor, clinic, time, date, createdAt, status, patientEmail, complaint) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'),
   updateQueueStatus: db.prepare('UPDATE queues SET status = ? WHERE id = ?'),
-  deleteQueue: db.prepare('DELETE FROM queues WHERE id = ?')
+  deleteQueue: db.prepare('DELETE FROM queues WHERE id = ?'),
+  getOrders: db.prepare('SELECT * FROM orders ORDER BY date DESC'),
+  getOrderById: db.prepare('SELECT * FROM orders WHERE id = ?'),
+  insertOrder: db.prepare('INSERT INTO orders (id, userId, name, items, status, date) VALUES (?, ?, ?, ?, ?, ?)'),
+  updateOrderStatus: db.prepare('UPDATE orders SET status = ? WHERE id = ?')
 };
 
 // Helpers
@@ -149,14 +184,19 @@ function serveStatic(req, res, pathname) {
     };
 
     const acceptEncoding = req.headers['accept-encoding'] || '';
+    const stream = fs.createReadStream(filePath);
+    stream.on('error', () => {
+      if (!res.headersSent) sendJSON(res, 500, { error: 'Gagal membaca file' });
+    });
+
     if (isCompressible && acceptEncoding.includes('gzip')) {
       headers['Content-Encoding'] = 'gzip';
       res.writeHead(200, headers);
-      fs.createReadStream(filePath).pipe(zlib.createGzip()).pipe(res);
+      stream.pipe(zlib.createGzip()).pipe(res);
     } else {
       headers['Content-Length'] = stats.size;
       res.writeHead(200, headers);
-      fs.createReadStream(filePath).pipe(res);
+      stream.pipe(res);
     }
   });
 }
@@ -229,7 +269,7 @@ const server = http.createServer(async (req, res) => {
       const userMatch = pathname.match(/^\/api\/users\/(\d+)$/);
       if (userMatch && method === 'PUT') {
         const id = Number(userMatch[1]);
-        const { name, email, phone, bio = '' } = await parseJSON(req);
+        const { name, email, phone, bio = '', age = null, status = '', photo = '' } = await parseJSON(req);
         if (!name?.trim() || !email?.trim() || typeof bio !== 'string' || bio.length > 1000) {
           return sendJSON(res, 400, { error: 'Nama, email, dan bio (maksimal 1000 karakter) wajib valid.' });
         }
@@ -240,7 +280,8 @@ const server = http.createServer(async (req, res) => {
 
         const prevUser = stmts.getUserById.get(id);
         stmts.updateUser.run(
-          name.trim(), email.trim().toLowerCase(), phone ? phone.trim() : '', bio.trim(), id
+          name.trim(), email.trim().toLowerCase(), phone ? phone.trim() : '', bio.trim(),
+          age ? Number(age) : null, status ? String(status).trim() : '', photo || '', id
         );
 
         if (prevUser) {
@@ -249,7 +290,16 @@ const server = http.createServer(async (req, res) => {
           );
         }
 
-        return sendJSON(res, 200, { id, name: name.trim(), email: email.trim().toLowerCase(), phone: phone || '', bio: bio.trim() });
+        return sendJSON(res, 200, {
+          id,
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
+          phone: phone || '',
+          bio: bio.trim(),
+          age: age ? Number(age) : null,
+          status: status ? String(status).trim() : '',
+          photo: photo || ''
+        });
       }
 
       // GET /api/medicines
@@ -260,8 +310,11 @@ const server = http.createServer(async (req, res) => {
 
       // POST /api/medicines
       if (pathname === '/api/medicines' && method === 'POST') {
-        const { name, category, form, stock, description, image } = await parseJSON(req);
-        const insert = stmts.insertMedicine.run(name.trim(), category.trim(), form, Number(stock) || 0, (description || '').trim(), image || '');
+        const { name, category, form, stock, description, dosage, sideEffects, image } = await parseJSON(req);
+        if (!name?.trim() || !category?.trim() || !form) {
+          return sendJSON(res, 400, { error: 'Nama, kategori, dan bentuk obat wajib diisi.' });
+        }
+        const insert = stmts.insertMedicine.run(name.trim(), category.trim(), form, Number(stock) || 0, (description || '').trim(), (dosage || '').trim(), (sideEffects || '').trim(), image || '');
 
         return sendJSON(res, 201, {
           id: Number(insert.lastInsertRowid),
@@ -270,6 +323,8 @@ const server = http.createServer(async (req, res) => {
           form,
           stock: Number(stock) || 0,
           description: (description || '').trim(),
+          dosage: (dosage || '').trim(),
+          sideEffects: (sideEffects || '').trim(),
           image: image || '',
         });
       }
@@ -280,11 +335,16 @@ const server = http.createServer(async (req, res) => {
         const id = Number(medMatch[1]);
         if (method === 'PUT') {
           const body = await parseJSON(req);
-          if (body.image !== undefined) {
-            stmts.updateMedicineWithImg.run(Number(body.stock) || 0, body.image, id);
-          } else {
-            stmts.updateMedicineStock.run(Number(body.stock) || 0, id);
+          const current = db.prepare('SELECT * FROM medicines WHERE id = ?').get(id);
+          if (!current) {
+            return sendJSON(res, 404, { error: 'Obat tidak ditemukan' });
           }
+          const stock = body.stock !== undefined ? Number(body.stock) : current.stock;
+          const image = body.image !== undefined ? body.image : current.image;
+          const description = body.description !== undefined ? body.description : current.description;
+          const dosage = body.dosage !== undefined ? body.dosage : current.dosage;
+          const sideEffects = body.sideEffects !== undefined ? body.sideEffects : current.sideEffects;
+          stmts.updateMedicine.run(stock, image, description, dosage, sideEffects, id);
           return sendJSON(res, 200, { success: true, id });
         }
         if (method === 'DELETE') {
@@ -346,21 +406,35 @@ const server = http.createServer(async (req, res) => {
 
       // GET /api/queues
       if (pathname === '/api/queues' && method === 'GET') {
-        const today = new Date().toISOString().split('T')[0];
-        const queues = stmts.getQueuesByDate.all(today);
+        const dateParam = parsedUrl.searchParams.get('date');
+        const queues = dateParam
+          ? stmts.getQueuesByDate.all(dateParam)
+          : stmts.getAllQueues.all();
         return sendJSON(res, 200, queues);
       }
 
       // POST /api/queues
       if (pathname === '/api/queues' && method === 'POST') {
         const { number, name, doctor, clinic, time, date, createdAt, status, patientEmail, complaint } = await parseJSON(req);
+        if (!name?.trim() || !number?.trim()) {
+          return sendJSON(res, 400, { error: 'Nama dan nomor antrian wajib diisi.' });
+        }
         const insert = stmts.insertQueue.run(
-          number, name, doctor, clinic, time, date, createdAt, status || 'Menunggu', patientEmail || '', complaint || ''
+          number.trim(), name.trim(), doctor || 'dr. Dian', clinic || 'Poli Umum', time || '', date || new Date().toISOString().split('T')[0], createdAt || new Date().toISOString(), status || 'Menunggu', patientEmail ? patientEmail.trim().toLowerCase() : '', complaint ? complaint.trim() : ''
         );
 
         return sendJSON(res, 201, {
           id: Number(insert.lastInsertRowid),
-          number, name, doctor, clinic, time, date, createdAt, status: status || 'Menunggu', patientEmail: patientEmail || '', complaint: complaint || ''
+          number: number.trim(),
+          name: name.trim(),
+          doctor: doctor || 'dr. Dian',
+          clinic: clinic || 'Poli Umum',
+          time: time || '',
+          date: date || new Date().toISOString().split('T')[0],
+          createdAt: createdAt || new Date().toISOString(),
+          status: status || 'Menunggu',
+          patientEmail: patientEmail ? patientEmail.trim().toLowerCase() : '',
+          complaint: complaint ? complaint.trim() : ''
         });
       }
 
@@ -370,6 +444,9 @@ const server = http.createServer(async (req, res) => {
         const id = Number(queueMatch[1]);
         if (method === 'PATCH') {
           const { status } = await parseJSON(req);
+          if (!['Menunggu', 'Diperiksa', 'Selesai'].includes(status)) {
+            return sendJSON(res, 400, { error: 'Status antrian tidak valid' });
+          }
           stmts.updateQueueStatus.run(status, id);
           return sendJSON(res, 200, { success: true, id, status });
         }
@@ -377,6 +454,54 @@ const server = http.createServer(async (req, res) => {
           stmts.deleteQueue.run(id);
           return sendJSON(res, 200, { success: true, id });
         }
+      }
+
+      // GET & POST /api/orders
+      if (pathname === '/api/orders') {
+        if (method === 'GET') {
+          const allOrders = stmts.getOrders.all().map(o => ({
+            ...o,
+            items: typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || [])
+          }));
+          return sendJSON(res, 200, allOrders);
+        }
+        if (method === 'POST') {
+          const { id, userId, name, items, status = 'Menunggu Pengambilan', date = new Date().toISOString() } = await parseJSON(req);
+          if (!id || !name || !items) {
+            return sendJSON(res, 400, { error: 'Data pesanan tidak lengkap.' });
+          }
+          const itemsList = typeof items === 'string' ? JSON.parse(items) : items;
+          const itemsStr = JSON.stringify(itemsList);
+          stmts.insertOrder.run(id, Number(userId) || 0, name.trim(), itemsStr, status, date);
+          for (const it of itemsList) {
+            if (it.name && it.qty) {
+              db.prepare('UPDATE medicines SET stock = MAX(0, stock - ?) WHERE name = ?').run(Number(it.qty) || 0, it.name);
+            }
+          }
+          return sendJSON(res, 201, { id, userId: Number(userId) || 0, name: name.trim(), items: itemsList, status, date });
+        }
+      }
+
+      // PATCH /api/orders/:id
+      const orderMatch = pathname.match(/^\/api\/orders\/([^\/]+)$/);
+      if (orderMatch && method === 'PATCH') {
+        const orderId = orderMatch[1];
+        const { status } = await parseJSON(req);
+        const existing = stmts.getOrderById.get(orderId);
+        if (!existing) return sendJSON(res, 404, { error: 'Pesanan tidak ditemukan' });
+
+        stmts.updateOrderStatus.run(status, orderId);
+        if (status === 'Dibatalkan' && existing.status !== 'Dibatalkan') {
+          try {
+            const itemsList = JSON.parse(existing.items);
+            for (const it of itemsList) {
+              if (it.name && it.qty) {
+                db.prepare('UPDATE medicines SET stock = stock + ? WHERE name = ?').run(Number(it.qty) || 0, it.name);
+              }
+            }
+          } catch (_) {}
+        }
+        return sendJSON(res, 200, { success: true, id: orderId, status });
       }
 
       return sendJSON(res, 404, { error: 'Endpoint API tidak ditemukan' });

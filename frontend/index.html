@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Klinik Polinela — Website</title>
   <link rel="stylesheet" href="style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js" defer></script>
 </head>
 <body>
   <!-- Login / Register Section -->
@@ -122,21 +123,27 @@
 
       <div class="nav-caption">MENU UTAMA</div>
       <nav>
-        <button class="nav-link active" data-page="home"><span class="nav-icon">▦</span> Home</button>
-        <button class="nav-link" data-page="obat"><span class="nav-icon">▤</span> Data Obat</button>
+        <!-- Menu Admin -->
+        <button class="nav-link active" data-page="home"><span class="nav-icon">▦</span> Home / Dashboard</button>
         <button class="nav-link" data-page="antrian"><span class="nav-icon">☷</span> Antrian</button>
-        <button class="nav-link" data-page="profil"><span class="nav-icon">♙</span> Profil</button>
         <button class="nav-link hidden" data-page="jadwal" id="admin-jadwal-nav"><span class="nav-icon">☖</span> Jadwal Dokter</button>
+        <button class="nav-link" data-page="obat"><span class="nav-icon">▤</span> Data Obat</button>
+
+        <!-- Menu Pasien -->
+        <button class="nav-link hidden" data-page="jadwal" id="patient-jadwal-nav"><span class="nav-icon">☖</span> Jadwal Dokter</button>
         <button class="nav-link hidden" data-page="pasien" id="patient-nav"><span class="nav-icon">▣</span> Antrian Saya</button>
         <button class="nav-link hidden" data-page="info-obat" id="info-obat-nav"><span class="nav-icon">▤</span> Informasi Obat</button>
         <button class="nav-link hidden" data-page="lokasi" id="patient-lokasi-nav"><span class="nav-icon">⌖</span> Lokasi Klinik</button>
-        <button class="nav-link hidden" data-page="jadwal" id="patient-jadwal-nav"><span class="nav-icon">☖</span> Jadwal Dokter</button>
+
+        <!-- Profil (Admin & Pasien) -->
+        <button class="nav-link" data-page="profil"><span class="nav-icon">♙</span> Profil</button>
       </nav>
 
       <div class="sidebar-bottom">
-        <div class="help-card">
+        <div class="help-card" id="help-btn" role="button" tabindex="0" title="Bantuan & Kontak Klinik" style="cursor: pointer;">
           <div class="help-icon">?</div>
           <strong>Butuh bantuan?</strong>
+          <p class="muted" style="font-size:11px; margin-top:4px;">Hubungi Layanan Klinik</p>
         </div>
         <button id="logout-btn" class="logout-btn"><span>↪</span> Keluar</button>
       </div>
@@ -151,7 +158,7 @@
           <strong>Klinik Polinela</strong>
         </div>
         <div class="breadcrumb">
-          Klinik Polinela <span>/</span> <strong id="breadcrumb-current">Home</strong>
+          Klinik Polinela <span>/</span> <strong id="breadcrumb-current">Home / Dashboard</strong>
         </div>
         <div class="top-actions">
           <button class="icon-btn" aria-label="Notifikasi" id="notification-btn">
@@ -166,9 +173,9 @@
               <button class="notification-clear" id="notification-clear" aria-label="Bersihkan notifikasi">Bersihkan</button>
             </div>
             <ul class="notification-list" id="notification-list"></ul>
-            <p class="notification-empty hidden">Belum ada notifikasi.</p>
+            <p class="notification-empty hidden" id="notification-empty">Belum ada notifikasi.</p>
           </div>
-          <div class="user-chip">
+          <div class="user-chip" data-goto="profil" role="button" tabindex="0" title="Buka Profil" style="cursor: pointer;">
             <div class="avatar">A</div>
             <div>
               <strong id="top-user-name">Admin Klinik</strong>
@@ -276,7 +283,7 @@
                 <h2>Stok obat</h2>
                 <p class="muted">Stok obat yang dikelola admin</p>
               </div>
-              <button class="dots-btn">•••</button>
+              <button class="dots-btn" data-goto="obat" aria-label="Lihat daftar obat" title="Lihat daftar obat">•••</button>
             </div>
             <div id="home-medicine-list" class="medicine-list"></div>
             <button class="btn outline full" data-goto="obat">Lihat daftar obat <span>→</span></button>
@@ -342,6 +349,31 @@
                 </tr>
               </thead>
               <tbody id="medicine-table-body"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="panel" style="margin-top:1.5rem">
+          <div class="panel-heading section-tools">
+            <div>
+              <h2>Daftar pesanan obat pasien</h2>
+              <p class="muted">Pesanan obat yang dibuat oleh pasien melalui menu Informasi Obat.</p>
+            </div>
+            <input id="order-search" class="search-input" placeholder="⌕  Cari nama pasien / no. resep..." />
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>No. Resep</th>
+                  <th>Pasien</th>
+                  <th>Tanggal</th>
+                  <th>Obat</th>
+                  <th>Status</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="admin-order-table-body"></tbody>
             </table>
           </div>
         </article>
@@ -518,9 +550,22 @@
               <h2>Daftar obat klinik</h2>
               <p class="muted">Informasi obat untuk referensi pasien.</p>
             </div>
-            <input id="info-obat-search" class="search-input" placeholder="⌕  Cari obat..." />
+            <div class="info-obat-tools">
+              <input id="info-obat-search" class="search-input" placeholder="⌕  Cari obat..." />
+              <button type="button" class="btn outline" onclick="openCart()">🛒 Keranjang (<span id="cart-count" class="cart-count">0</span>)</button>
+            </div>
           </div>
           <div id="info-obat-list" class="info-obat-grid"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-heading section-tools">
+            <div>
+              <h2>Riwayat Pesanan Obat</h2>
+              <p class="muted">Status dan riwayat pemesanan obat Anda.</p>
+            </div>
+          </div>
+          <div id="order-history-list"></div>
         </article>
       </section>
 
@@ -708,6 +753,9 @@
         </form>
     </article>
 </div>
+      </section>
+    </main>
+  </div>
 
   <!-- Reusable Modal Window -->
   <div id="modal-backdrop" class="modal-backdrop hidden">

@@ -23,7 +23,7 @@ Sistem manajemen antrian dan inventaris obat Klinik Polinela berbasis Node.js na
    *(atau `npm run dev` untuk development)*
 3. **Buka browser** dan akses:
    ```
-   http://localhost:3000
+   http://localhost:3002
    ```
 
 ---
