@@ -16,7 +16,7 @@ const STORE = 'klinik-polinela-v1';
 const DEFAULT_ADMIN = {
   id: 1,
   name: 'Admin Klinik',
-  email: 'admin@kliniksehat.id',
+  email: 'adminklinik@polinela.ac.id',
   password: 'klinik123',
   phone: '0812-3456-7890',
   bio: '',

@@ -229,7 +229,7 @@ const server = http.createServer(async (req, res) => {
             return sendJSON(res, 401, { error: 'Username atau kata sandi admin salah.' });
           }
           const admin = stmts.getAdmin.get('admin') || {
-            id: 1, name: 'Admin Klinik', email: 'admin@kliniksehat.id', phone: '0812-3456-7890', bio: '', role: 'admin'
+            id: 1, name: 'Admin Klinik', email: 'adminklinik@polinela.ac.id', phone: '0812-3456-7890', bio: '', role: 'admin'
           };
           return sendJSON(res, 200, admin);
         }

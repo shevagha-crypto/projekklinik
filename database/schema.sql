@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS queues (
 
 -- Data Awal (Seed Data)
 INSERT OR IGNORE INTO users (id, name, email, password, phone, role, createdAt)
-VALUES (1, 'Admin Klinik', 'admin@kliniksehat.id', 'klinik123', '0812-3456-7890', 'admin', '2026-01-01T00:00:00.000Z');
+VALUES (1, 'Admin Klinik', 'adminklinik@polinela.ac.id', 'klinik123', '0812-3456-7890', 'admin', '2026-01-01T00:00:00.000Z');
 
 INSERT OR IGNORE INTO medicines (id, name, category, form, stock, description, dosage, sideEffects, image) VALUES
 (1, 'Paracetamol 500 mg', 'Analgesik', 'Tablet', 120, 'Meredakan demam dan nyeri ringan hingga sedang seperti sakit kepala, sakit gigi, dan nyeri otot.', 'Dewasa: 1 tablet 3-4 kali sehari setelah makan. Anak 6-12 tahun: 1/2 - 1 tablet 3-4 kali sehari.', 'Jarang terjadi; pemakaian berlebih dapat merusak fungsi hati.', ''),
